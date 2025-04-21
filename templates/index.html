@@ -3,14 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ganne ka Juice - Order Now</title>
+    <title>Ganne ka Juice</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <script src="https://js.stripe.com/v3/"></script>
-    <script>
-        const STRIPE_PUBLISHABLE_KEY = '{{ stripe_public_key }}';
-    </script>
 </head>
 <body>
     <div class="container">
@@ -19,10 +14,9 @@
                 <div class="card mt-5">
                     <div class="card-header text-center">
                         <h1>Ganne ka Juice</h1>
-                        <p class="price">₹25 per cup</p>
                     </div>
                     <div class="card-body">
-                        <form id="orderForm">
+                        <form id="paymentForm">
                             <div class="mb-3">
                                 <label for="name" class="form-label">Name</label>
                                 <input type="text" class="form-control" id="name" required>
@@ -32,54 +26,80 @@
                                 <input type="tel" class="form-control" id="phone" required>
                             </div>
                             <div class="mb-3">
-                                <label for="quantity" class="form-label">Quantity</label>
-                                <div class="input-group">
-                                    <button type="button" class="btn btn-outline-secondary" id="decrementBtn">
-                                        <i class="bi bi-dash"></i>
-                                    </button>
-                                    <input type="number" class="form-control text-center" id="quantity" value="1" min="1" max="100" readonly>
-                                    <button type="button" class="btn btn-outline-secondary" id="incrementBtn">
-                                        <i class="bi bi-plus"></i>
-                                    </button>
-                                </div>
-                                <div class="text-end mt-2">
-                                    <span class="total-price">Total: ₹<span id="totalAmount">25</span></span>
-                                </div>
+                                <label for="quantity" class="form-label">Quantity (cups)</label>
+                                <input type="number" class="form-control" id="quantity" min="1" value="1" required>
                             </div>
-                            <div class="alert alert-info">
-                                <i class="bi bi-info-circle"></i> Payment Options:
-                                <ul class="mb-0 mt-2">
-                                    <li>Credit/Debit Card (Visa, Mastercard, etc.)</li>
-                                </ul>
-                            </div>
-                            <button type="submit" class="btn btn-primary w-100" id="submit-button">
-                                <i class="bi bi-credit-card"></i> Pay Now
-                            </button>
+                            <button type="submit" class="btn btn-primary w-100">Proceed to Payment</button>
                         </form>
-                    </div>
-                </div>
-
-                <!-- Order Status Modal -->
-                <div class="modal fade" id="orderStatusModal" tabindex="-1">
-                    <div class="modal-dialog">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title">Order Placed Successfully!</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                            </div>
-                            <div class="modal-body">
-                                <p>Your verification code: <strong id="verificationCode"></strong></p>
-                                <p>Order ID: <strong id="orderId"></strong></p>
-                                <p>Please show this code to the seller when collecting your order.</p>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
+    <form id="payuForm" action="https://test.payu.in/_payment" method="POST" style="display: none;">
+        <input type="hidden" name="key" id="key">
+        <input type="hidden" name="txnid" id="txnid">
+        <input type="hidden" name="amount" id="amount">
+        <input type="hidden" name="productinfo" id="productinfo">
+        <input type="hidden" name="firstname" id="firstname">
+        <input type="hidden" name="email" id="email">
+        <input type="hidden" name="phone" id="phone">
+        <input type="hidden" name="surl" id="surl">
+        <input type="hidden" name="furl" id="furl">
+        <input type="hidden" name="hash" id="hash">
+        <input type="hidden" name="service_provider" id="service_provider">
+    </form>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+        document.getElementById('paymentForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const name = document.getElementById('name').value;
+            const phone = document.getElementById('phone').value;
+            const quantity = document.getElementById('quantity').value;
+
+            try {
+                const response = await fetch('/create-payment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        name: name,
+                        phone: phone,
+                        quantity: quantity
+                    })
+                });
+
+                if (response.ok) {
+                    const paymentData = await response.json();
+                    
+                    // Fill the PayU form with payment data
+                    document.getElementById('key').value = paymentData.key;
+                    document.getElementById('txnid').value = paymentData.txnid;
+                    document.getElementById('amount').value = paymentData.amount;
+                    document.getElementById('productinfo').value = paymentData.productinfo;
+                    document.getElementById('firstname').value = paymentData.firstname;
+                    document.getElementById('email').value = paymentData.email;
+                    document.getElementById('phone').value = paymentData.phone;
+                    document.getElementById('surl').value = paymentData.surl;
+                    document.getElementById('furl').value = paymentData.furl;
+                    document.getElementById('hash').value = paymentData.hash;
+                    document.getElementById('service_provider').value = paymentData.service_provider;
+
+                    // Submit the PayU form
+                    document.getElementById('payuForm').submit();
+                } else {
+                    const error = await response.json();
+                    alert(error.message || 'Failed to create payment');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred while processing your payment');
+            }
+        });
+    </script>
 </body>
 </html> 
