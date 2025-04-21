@@ -50,6 +50,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+ganne_ka_juice/
 
 # Translations
 *.mo
